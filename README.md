@@ -1,6 +1,10 @@
 # Menu2
 attempt revamp of helloSystem Menu
 Still very experimental. Only imports menu on registerwindow atm.
+The executable it self does not work with QT_QPA_PLATFORMTHEME set to panda,
+because the cornerwidget for search, which gets focus by CTRL+SPACE, does not show
+up under panda.
+
 I patched QtPlugin as follows
 ```diff
 diff --git a/platformthemeplugin/qdbusmenubar.cpp b/platformthemeplugin/qdbusmenubar.cpp

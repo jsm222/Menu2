@@ -44,11 +44,11 @@ void key_pressed_cb(XPointer arg, XRecordInterceptData *d) {
                 ctrldown =1;
             }
 
-            if(key==65 && ctrldown) {
+            if(key==65 && ctrldown==1) {
                 foreach (QWidget *w,qApp->topLevelWidgets())
                     if (MainWindow *mainWin =qobject_cast<MainWindow *>(w)) {
                   emit mainWin->setsearchfocus();
-
+		  ctrldown=0;
                 }
 
             }
