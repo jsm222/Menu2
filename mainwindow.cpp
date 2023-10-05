@@ -2,7 +2,9 @@
 #include <QApplication>
 #include <QScreen>
 #include "menuimporteradaptor.h"
-
+#include <QKeyEvent>
+#include <QMap>
+#include "menux11.h"
 HsSearchMenu::HsSearchMenu(QWidget *parent) :QMenu(parent)
      {
 }
@@ -18,32 +20,48 @@ HsSearchMenu::HsSearchMenu(QWidget *parent) :QMenu(parent)
              }
              if(this->activeAction() == firstEn || firstEn==nullptr) {
                  if(qobject_cast<HsLineEdit*>(parent())) {
-                     qobject_cast<HsLineEdit*>(parent())->setFocus();
-                     qobject_cast<HsLineEdit*>(parent())->grabKeyboard();
-                     return;
+
+
+                     //qobject_cast<MainWindow*>(qobject_cast<HsLineEdit*>(parent())->parent())->activateWindow();
+                    qobject_cast<HsLineEdit*>(parent())->grabKeyboard();
+                    QTimer::singleShot(0,qobject_cast<HsLineEdit*>(parent()), SLOT(setFocus()));
                  }
              }
 
 
 
          }
+         if(event->type() == QKeyEvent::KeyPress && event->key()==Qt::Key_Escape)  {
+             hide();
+         }
         QMenu::keyPressEvent(event);
      }
+
+
+
 HsMenu::HsMenu(QWidget *parent) :QMenu(parent)
        {
 
      }
-void HsMenu::actionEvent(QActionEvent* event)  {
-    if(event->action()->menu() && event->type() == QEvent::ActionAdded) {
-        if(qobject_cast<QMenuBar*>(parent()) != nullptr) {
-            qobject_cast<QMenuBar*>(parent())->addAction(event->action());
 
+void HsMenu::actionEvent(QActionEvent* event)  {
+
+
+
+    if(event->action() && event->type() == QEvent::ActionAdded) {
+        if(qobject_cast<QMenuBar*>(parent()) != nullptr) {
+                 if(!qobject_cast<QMenuBar*>(parent())->actions().isEmpty()
+                     && qobject_cast<QMenuBar*>(parent())->actions().contains(event->action())) {
+                     qDebug()<< __LINE__ << __FILE__;
+                        return;
+                 }
+            qobject_cast<QMenuBar*>(parent())->addAction(event->action());
 
 
         }
 
     }
-    if(event->action()->menu() && event->type() == QEvent::ActionRemoved) {
+    if(event->action() && event->type() == QEvent::ActionRemoved) {
 
         if(qobject_cast<QMenuBar*>(parent()) != nullptr) {
             qobject_cast<QMenuBar*>(parent())->removeAction(event->action());
@@ -52,25 +70,38 @@ void HsMenu::actionEvent(QActionEvent* event)  {
     }
 
 
-        QMenu::actionEvent(event);
+    return QMenu::actionEvent(event);
+
+
+
 }
 HsLineEdit::HsLineEdit(QWidget *parent) : QLineEdit(parent)
 {
+
 }
 void HsLineEdit::keyPressEvent(QKeyEvent *event)
 {
         if (event->key() == Qt::Key_Down || event->key() == Qt::Key_Up) {
         emit returnPressed();
-        }else {
+        }
+        else if(event->key() == Qt::Key_Escape) {
+           QLineEdit::keyPressEvent(event);
+           emit escapeFromSearch();
+        }
+        else {
 
         QLineEdit::keyPressEvent(event);
         }
 }
 
+
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 
 {
+
+
         const QRect screenGeometry = qApp->screens()[0]->availableGeometry();
 
 
@@ -78,77 +109,92 @@ MainWindow::MainWindow(QWidget *parent)
         move(0,0);
         setFixedHeight(30);
 
-        m_searchLineEdit = new HsLineEdit(0);
+        m_searchLineEdit = new HsLineEdit(this);
         m_searchMenu = new HsSearchMenu(m_searchLineEdit);
+
         m_searchMenu->setTitle("SearchResults");
         connect(m_searchMenu,&QMenu::aboutToHide,this,[this]{
 
             setWindowFlag(Qt::WindowDoesNotAcceptFocus,true);
             setAttribute(Qt::WA_X11DoNotAcceptFocus,true);
+            setAttribute(Qt::WA_X11NetWmWindowTypeDock,true);
             m_searchLineEdit->clear();
+            m_searchLineEdit->releaseKeyboard();
+
             show();
-        });
-      connect(this,&MainWindow::setsearchfocus,this,[this] {
-            setWindowFlag(Qt::WindowDoesNotAcceptFocus,false);
-            setAttribute(Qt::WA_X11DoNotAcceptFocus,false);
-            show();
-            m_searchLineEdit->setFocus();
 
         });
+
+      connect(this,&MainWindow::setsearchfocus,this,[this] {
+            beforeSearch(m_menu);
+            setWindowFlag(Qt::WindowDoesNotAcceptFocus,false);
+            setAttribute(Qt::WA_X11DoNotAcceptFocus,false);
+            setAttribute(Qt::WA_X11NetWmWindowTypeDock,false);
+            show();
+            QTimer::singleShot(0,m_searchLineEdit,SLOT(setFocus()));
+
+
+
+
+        });
+setFocusProxy(m_searchLineEdit);
 connect(m_searchLineEdit,&QLineEdit::returnPressed,this,[this] {
-          m_searchLineEdit->releaseKeyboard();
-          if(!m_searchMenu->actions().isEmpty())
-              m_searchMenu->setActiveAction(m_searchMenu->actions().first());
+        m_searchLineEdit->releaseKeyboard();
+
 
 
       });
+     connect(m_searchLineEdit,&HsLineEdit::escapeFromSearch,this,[this] {
+    m_searchMenu->aboutToHide();
+        });
 
         connect(m_searchLineEdit,&QLineEdit::textChanged,this,[this] {
-          m_searchLineEdit->setFocus();
+
           if(m_searchLineEdit->text()!="") {
                 m_searchMenu->clear();
                 QPoint pos = this->mapToGlobal(QPoint(0,0));
                 m_searchMenu->move(pos.rx(),pos.ry()+m_searchLineEdit->height());
-                //m_searchMenu->setGeometry(pos.rx(),pos.ry()+m_searchLineEdit->height(),m_searchMenu->height(),m_searchMenu->width());
                 if(!m_searchMenu->isVisible())
                     m_searchMenu->show();
 
 
+
                     QStringList names;
-                if(m_menu) {
+
+
                     searchMenu(m_menu,names,m_searchLineEdit->text());
                     m_searchMenu->adjustSize();
-
+                    activateWindow();
+                    m_searchLineEdit->setFocus();
                 }
 
-                }
+
 
 
 
             });
-  //  setWindowFlags(Qt::);
-    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus | Qt::WindowStaysOnTopHint);
+
+
+
+    setWindowFlags(Qt::FramelessWindowHint| Qt::WindowDoesNotAcceptFocus | Qt::WindowStaysOnTopHint);
     setAttribute(Qt::WA_X11DoNotAcceptFocus,true);
-
-
-}
-void MainWindow::onWindowShow() {
+    setAttribute(Qt::WA_X11NetWmWindowTypeDock,true);
+    MenuX11 *menuX11 = new MenuX11();
+    menuX11->setStrut(winId(),height(),width());
     ///ui->menubar->addMenu(m_search);
 #if 1
-    QDBusConnection::sessionBus().registerService(DBUS_SERVICE);
-    qDebug()<<QDBusConnection::sessionBus().lastError();
-    m = new MenuImporter();
-    new MenuImporterAdaptor(m);
 
-    QDBusConnection::sessionBus().registerObject(DBUS_OBJECT_PATH, m);
-    qDebug()<<QDBusConnection::sessionBus().lastError();
+
+
+
+
 #endif
 
     menubar = new QMenuBar(this);
     menubar->setNativeMenuBar(false);
     setMenuBar(menubar);
 
-
+    menubar->setFocusPolicy(Qt::NoFocus);
 
 
 
@@ -186,64 +232,109 @@ void MainWindow::onWindowShow() {
     menubar->setCornerWidget(m_searchLineEdit,Qt::TopLeftCorner);
 
     menubar->adjustSize();
+    QDBusConnection::sessionBus().registerService(DBUS_SERVICE);
+    qDebug()<<QDBusConnection::sessionBus().lastError();
+    m = new MenuImporter(this);
+    new MenuImporterAdaptor(m);
+    QDBusConnection::sessionBus().registerObject(DBUS_OBJECT_PATH, m);
+    qDebug()<<QDBusConnection::sessionBus().lastError();
 
 
-
-
-   //
-    // menubar->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);
-    //m_menuImporter = new HDBusMenuImporter("","",DBusMenuImporterType::ASYNCHRONOUS,menubar);
 #if 1
-    connect(m,&MenuImporter::windowRegistered,this,[this] {
-        qDebug() << m->m_service << m->m_objectPath;
-        m_menuImporter = new HDBusMenuImporter(m->m_service,m->m_objectPath,DBusMenuImporterType::ASYNCHRONOUS,menubar);
-        m_menu = m_menuImporter->menu();
+
+    connect(m,&MenuImporter::windowRegistered,this,[this](uint winId,QString service,QString path) {
+
+        m_windowMenus[winId]=QStringList({service,path});
 
     });
-  connect(m,&MenuImporter::windowUnregistered,this,[this] {
+    connect(this,&MainWindow::windowChanged,this,[this,menuX11]() {
+
+        unsigned long winId = menuX11->getActiveWindow();
+
+        qDebug() << winId << this->window()->winId();
+        if(winId == this->window()->winId()) {
+            return;
+        }
+        qDebug() << (m_menu != m_menuDbusMenus[winId]) << __LINE__;
+        if(!m_windowMenus[winId].isEmpty() && (m_menu ==nullptr || (m_menu != m_menuDbusMenus[winId]))) {
+            for(QAction *a :menubar->actions()) {
+                if(a==m_searchAction) {
+                    continue;
+                }
+                menubar->removeAction(a);
+
+            }
+
+
+            m_menuImporter = new HDBusMenuImporter(m_windowMenus[winId][0],m_windowMenus[winId][1],DBusMenuImporterType::ASYNCHRONOUS,menubar);
+            m_menu = m_menuImporter->menu();
+            m_menuDbusMenus[winId]=m_menu;
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+    });
+    connect(m,&MenuImporter::windowUnregistered,this,[this](uint winId) {
+        m_windowMenus[winId].clear();
+        for(QAction *a :menubar->actions()) {
+            if(a==m_searchAction) {
+                continue;
+            }
+            menubar->removeAction(a);
+
+        }
+        m_menu->clear();
         m_menuImporter->deleteLater();
     });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#endif
 }
 
-
-
-
-
+#endif
 
 MainWindow::~MainWindow()
 {
 
 }
+void MainWindow::beforeSearch(QMenu *item) {
+
+    //if(item!=m_menu)
+    item->aboutToShow();
+    QTimer::singleShot(250,this,[this,item] {
+    for(QAction *a: item->actions()) {
+
+            if(a->menu())
+                beforeSearch(a->menu());
+    }
+        });
+
+
+
+
+
+
+}
+
+
+
+
 void MainWindow::searchMenu(QMenu * item,QStringList names,QString searchTerm) {
     if(item && !item->title().isEmpty() )
         names << item->title();
+    if(item==nullptr) {
+        return;
+    }
 
     for(QAction *a: item->actions())    {
+
 
 
 
@@ -252,14 +343,18 @@ void MainWindow::searchMenu(QMenu * item,QStringList names,QString searchTerm) {
             QString txt = names.join(QString(" ")+ QChar(0x25b8)+QString(" "))+QString(" ")+ QChar(0x25b8)+QString(" ")+a->text();
             cpy->setText(txt.replace("&",""));
             cpy->setEnabled(a->isEnabled());
+            cpy->setVisible(a->isVisible());
             m_searchMenu->addAction(cpy);
 
+
+        } else if(a->menu()){
+
+
+        searchMenu(a->menu(),names,searchTerm);
+
         }
 
-        if(a->menu()) {
 
-            searchMenu(a->menu(),names,searchTerm);
-        }
     }
 
 }

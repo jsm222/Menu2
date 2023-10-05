@@ -35,11 +35,11 @@ MenuImporterAdaptor::~MenuImporterAdaptor()
     // destructor
 }
 
-QString MenuImporterAdaptor::GetMenuForWindow(uint windowId, QDBusObjectPath &menuObjectPath)
+QString MenuImporterAdaptor::GetMenuForWindow(uint windowId, QDBusObjectPath &objectPath)
 {
 
     // handle method call com.canonical.AppMenu.Registrar.GetMenuForWindow
-    return static_cast<MenuImporter*>(parent())->GetMenuForWindow(windowId, menuObjectPath);
+    return static_cast<MenuImporter*>(parent())->GetMenuForWindow(windowId, objectPath);
 }
 
 void MenuImporterAdaptor::RegisterWindow(uint windowId, const QDBusObjectPath &menuObjectPath)

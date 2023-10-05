@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 project(menusearch VERSION 0.1 LANGUAGES CXX)
-
+set(QT_VERSION_MAJOR 5)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -13,12 +13,15 @@ find_package(dbusmenu-qt5 REQUIRED)
 find_package(QT NAMES Qt5 REQUIRED COMPONENTS Widgets DBus)
 find_package(X11 COMPONENTS Xtst REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets DBus)
-
+find_package(dbusmenu-qt5 REQUIRED)
 set(PROJECT_SOURCES
         main.cpp
         mainwindow.cpp
         mainwindow.h
-
+        menuimporteradaptor.h
+        menuimporteradaptor.cpp
+        menuimporter.h menuimporter.cpp
+        menux11.h menux11.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -40,9 +43,8 @@ else()
     else()
         add_executable(menusearch
             ${PROJECT_SOURCES}
-            menuimporteradaptor.h
-            menuimporteradaptor.cpp
-            menuimporter.h menuimporter.cpp
+
+
         )
     endif()
 endif()
@@ -63,6 +65,7 @@ set_target_properties(menusearch PROPERTIES
 )
 
 include(GNUInstallDirs)
+target_include_directories(menusearch PUBLIC ${dbusmenu-qt6_INCLUDE_DIRS} ${X11_Xtst_INCLUDE_DIRS} ${X11_X11_INCLUDE_DIRS})
 
 install(TARGETS menusearch
     BUNDLE DESTINATION .
@@ -70,7 +73,7 @@ install(TARGETS menusearch
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-target_include_directories(menusearch PUBLIC ${dbusmenu-qt5_INCLUDE_DIRS} ${X11_Xtst_INCLUDE_DIRS} ${X11_X11_INCLUDE_DIRS})
+target_include_directories(menusearch PUBLIC ${dbusmenu-qt6_INCLUDE_DIRS} ${X11_Xtst_INCLUDE_DIRS} ${X11_X11_INCLUDE_DIRS})
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(menusearch)
 endif()

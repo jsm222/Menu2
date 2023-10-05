@@ -7,22 +7,22 @@ void MenuImporter::RegisterWindow(uint id, const QDBusObjectPath &path) {
 
 
     qDebug() << id << path.path() << __FILE__ ":" << __LINE__ << __func__<< message().service();
-    m_service = message().service();
-    m_objectPath = path.path();
-    emit windowRegistered();
+
+    emit windowRegistered(id,message().service(),path.path());
+    return;
 }
 
 void MenuImporter::UnregisterWindow(uint windowId) {
-    m_objectPath = "";
-    m_service ="";
-    emit windowUnregistered();
 
+    emit windowUnregistered(windowId);
+    return;
 }
 
 
 QString MenuImporter::GetMenuForWindow(uint windowId,
                                        QDBusObjectPath &menuObjectPath) {
-    qDebug() << __func__;
-  return m_objectPath;
+    qDebug() << __func__ << menuObjectPath.path();
+    menuObjectPath=m_objectPath;
+    return m_service;
 }
 

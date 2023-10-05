@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
-#include "qmenu.h"
+#include <QMenu>
+#include <QApplication>
 #include <QMainWindow>
 #include <QDebug>
 #include <QLayout>
@@ -10,25 +11,31 @@
 #include <QWidgetAction>
 #include <QTimer>
 #include "menuimporter.h"
-#include <dbusmenu-qt5/dbusmenuimporter.h>
+class HDBusMenuImporter;
+#include "dbusmenu-qt6/dbusmenuimporter.h"
 static const char *DBUS_SERVICE = "com.canonical.AppMenu.Registrar";
 static const char *DBUS_OBJECT_PATH = "/com/canonical/AppMenu/Registrar";
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
+
 class HsMenu : public QMenu {
 
     Q_OBJECT
 public:
     void actionEvent(QActionEvent *event) override;
     HsMenu(QWidget *parent = nullptr);
+    //void close();
+    QMetaObject::Connection m_con;
     std::chrono::high_resolution_clock::time_point lastOpened;
+    int reopencnt;
 
 
 
 
 
 };
+
 class HsSearchMenu : public QMenu {
 
     Q_OBJECT
@@ -43,7 +50,8 @@ class HsLineEdit :public QLineEdit {
 public:
     void keyPressEvent(QKeyEvent *event) override;
     HsLineEdit(QWidget *parent = nullptr);
-
+signals:
+    void escapeFromSearch();
 };
 class CloneAction : public QAction
 {
@@ -68,6 +76,7 @@ public slots:
                                                 << "iconVisibleInMenu"
                                                 << "statusTip"
                                                 << "toolTip"
+                                                << "visible"
                                                 << "whatsThis";
         foreach (const QString prop, props) {
             setProperty(qPrintable(prop), m_orig->property(qPrintable(prop)));
@@ -90,14 +99,20 @@ public:
     QMenu *m_menu = nullptr;
     HsLineEdit *m_searchLineEdit;
     ~MainWindow();
-    DBusMenuImporter *m_menuImporter = nullptr;
     void convertFromQMenu(QMenu *menu);
     QMenuBar * menubar;
-    void onWindowShow();
+    //bool event(QEvent *event) override;
+    QMap<uint,QStringList> m_windowMenus;
+    QMap<uint,QMenu*> m_menuDbusMenus;
+    HDBusMenuImporter * m_menuImporter;
+
 public: signals:
     void setsearchfocus();
+    void windowReg();
+    void windowChanged();
 private:
     void searchMenu(QMenu *item, QStringList names, QString searchTerm);
+    void beforeSearch(QMenu *item);
     Ui::MainWindow *ui;
     MenuImporter * m;
     HsSearchMenu * m_searchMenu;
@@ -112,46 +127,13 @@ public:
         : DBusMenuImporter(service, path, type, parent)
 
     {
-        m_reshowTimer = new QTimer();
-        connect(m_reshowTimer, &QTimer::timeout, this, [this] {
-            if (recent) {
-                recent->blockSignals(true);
-                qDebug() << "reshow" << __LINE__ << recent->title();
-                qobject_cast<QMenuBar *>(recent->parent()->parent())
-                    ->setActiveAction(recent->menuAction());
-                recent->blockSignals(false);
-                recent = nullptr;
-            }
-        });
     }
     QMenu *createMenu(QWidget *parent) override
     {
         if(parent==0) {
             parent = qobject_cast<QWidget*>(this->parent());
-        }
+    }
         HsMenu *menu  = new HsMenu(parent);
-        // Make some workarounds for focus loss which  calls closeAllPoupus();
-        connect(menu, &QMenu::aboutToShow, this, [this] {
-                    recent = qobject_cast<HsMenu *>(sender());
-                    qobject_cast<HsMenu *>(sender())->lastOpened =
-                        std::chrono::high_resolution_clock::now();
-                    m_reshowTimer->stop();
-                });
-                connect(menu, &QMenu::aboutToHide, this, [this] {
-                    HsMenu *reshow = qobject_cast<HsMenu *>(sender());
-
-                    m_reshowTimer->setSingleShot(true);
-                    m_reshowTimer->setInterval(100); // if you show another menu within 100ms the reshow
-                        // action is canceled.
-                    std::chrono::duration<double, std::milli> dur =
-                        std::chrono::high_resolution_clock::now() - reshow->lastOpened;
-
-                    if (dur.count() < 350) // start reshow timer on fastly reclosed menus
-                        m_reshowTimer->start();
-                });
-
-
-
         return menu;
     }
     public:

@@ -19,7 +19,6 @@ class QByteArray;
 template<class T> class QList;
 template<class Key, class Value> class QMap;
 class QString;
-class QStringList;
 class QVariant;
 QT_END_NAMESPACE
 
@@ -30,7 +29,7 @@ class MenuImporterAdaptor: public QDBusAbstractAdaptor
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "com.canonical.AppMenu.Registrar")
-    Q_CLASSINFO("D-Bus Introspection", ""
+    Q_CLASSINFO("D-Bus Introspection",
 "  <interface name=\"com.canonical.AppMenu.Registrar\">\n"
 "    <method name=\"RegisterWindow\">\n"
 "      <arg direction=\"in\" type=\"u\" name=\"windowId\"/>\n"
@@ -52,7 +51,7 @@ public:
 
 public: // PROPERTIES
 public Q_SLOTS: // METHODS
-    QString GetMenuForWindow(uint windowId, QDBusObjectPath &menuObjectPath);
+    QString GetMenuForWindow(uint windowId, QDBusObjectPath &ObjectPath);
     void RegisterWindow(uint windowId, const QDBusObjectPath &menuObjectPath);
     void UnregisterWindow(uint windowId);
 Q_SIGNALS: // SIGNALS

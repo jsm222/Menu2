@@ -8,10 +8,25 @@
 #include <QApplication>
 #include <QDebug>
 #include <QObject>
+#include <QEvent>
 #include <stdio.h>
 #include <X11/XKBlib.h>
+#include<QObject>
 #include <X11/extensions/record.h>
 #include<pthread.h>
+class HsQApplication: public QApplication {
+    Q_OBJECT
+public:
+    //bool eventFilter(QObject *obj,QEvent *e) override;
+    bool notify(QObject *, QEvent *) override;
+    HsQApplication(int &argc, char **argv, int = ApplicationFlags):QApplication(argc,argv,ApplicationFlags) {
+
+    }
+
+
+
+};
+using namespace std::chrono_literals;
 int ctrldown=0;
 void key_pressed_cb(XPointer arg, XRecordInterceptData *d);
 void *scan(void *ptr) {
@@ -65,23 +80,74 @@ void key_pressed_cb(XPointer arg, XRecordInterceptData *d) {
     XRecordFreeData (d);
 }
 
+void * getChangeWindow(void *ptr) {
+    Display *dsp = XOpenDisplay(NULL);
 
+    Window root = DefaultRootWindow(dsp);
+    XSelectInput(dsp,root, PropertyChangeMask);
+    XEvent e;
+    while(1) {
+
+        XNextEvent(dsp,&e);
+
+        switch(e.type)
+        {
+        case PropertyNotify: {
+
+
+            if(e.xproperty.atom==XInternAtom(dsp, "_NET_ACTIVE_WINDOW", True)) {
+                foreach (QWidget *w,qApp->topLevelWidgets())
+                if (MainWindow *mainWin =qobject_cast<MainWindow *>(w)) {
+                        emit mainWin->windowChanged();
+                        break;
+
+                    }
+            break;
+        }
+        break;
+        default:
+            break;
+        }
+    }
+
+    }
+
+    XCloseDisplay(dsp);
+    return 0;
+}
+#include "main.moc"
 int main(int argc, char *argv[]) {
 
-    QApplication a(argc, argv);
+    HsQApplication a(argc, argv);
+
     MainWindow w;
     w.show();
-    w.onWindowShow();
-
-    //a.setStyleSheet("QMenuBar::item {         color: red;         padding: 0px 0px 4px 4px;   }");
-
-
-   // a.setStyleSheet("QMenuBar {height:30px;color:red;} QMenuBar:item {color:red;height:28px;}");
-    qDebug() << a.styleSheet();
-    pthread_t thread1;
+    pthread_t thread0,thread1;
+    pthread_create(&thread0, NULL, *getChangeWindow,0);
     pthread_create(&thread1, NULL, *scan,0);
+
      return a.exec();
 
 
+
+}
+bool HsQApplication::notify(QObject *object, QEvent * event) {
+    //Workaround for focusloss on dynamic menus.. it ends up deactivting,
+    // which closes all popups.
+    if(event->type()==QEvent::ApplicationDeactivate) {
+    QWidget  *ap;
+    if((ap = activePopupWidget())) {
+        QTimer::singleShot(10,this,[ap]{
+                if(ap->parentWidget()!=nullptr && qobject_cast<QMenuBar*>(ap->parentWidget()->parentWidget())!=nullptr) {
+                    ap->blockSignals(true);
+                    qobject_cast<QMenuBar*>(ap->parentWidget()->parentWidget())->setActiveAction(qobject_cast<QMenu*>(ap)->menuAction());
+                    ap->blockSignals(false);
+                }
+            });
+    }
+
+    }
+
+    return QApplication::notify(object,event);
 
 }
