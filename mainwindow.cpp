@@ -293,8 +293,10 @@ connect(m_searchLineEdit,&QLineEdit::returnPressed,this,[this] {
             menubar->removeAction(a);
 
         }
-        m_menu->clear();
-        m_menuImporter->deleteLater();
+        if(m_menu)  {
+            m_menu->clear();
+        }
+
     });
 }
 
